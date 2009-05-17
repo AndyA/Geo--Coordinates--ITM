@@ -11,8 +11,11 @@ my $builder = MyBuilder->new(
   license           => 'perl',
   dist_author       => 'Andy Armstrong <andy@hexten.net>',
   dist_version_from => 'lib/Geo/Coordinates/ITM.pm',
-  requires          => { 'Test::More' => 0, },
-  add_to_cleanup    => ['Geo-Coordinates-ITM-*'],
+  requires          => {
+    'Test::More'          => 0,
+    'Test::Number::Delta' => '1.03',
+  },
+  add_to_cleanup => ['Geo-Coordinates-ITM-*'],
 );
 
 $builder->create_build_script();
