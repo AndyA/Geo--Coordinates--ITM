@@ -1,8 +1,11 @@
 Build.PL
 Changes
-MANIFEST
-README
+inc/MyBuilder.pm
 lib/Geo/Coordinates/ITM.pm
+MANIFEST
+MANIFEST.SKIP
+README
 t/00.load.t
+t/cvt.t
 t/pod-coverage.t
 t/pod.t

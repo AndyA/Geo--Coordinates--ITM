@@ -24,13 +24,30 @@ our $VERSION = '0.01';
 
 =head1 SYNOPSIS
 
-  use Geo::Coordinates::ITM;
+  use Geo::Coordinates::ITM qw( ll_to_grid grid_to_ll );
+
+  my ( $lat, $lon ) = grid_to_ll( $east, $north );
+  my ( $east, $north ) = ll_to_grid( $lat, $lon );
   
 =head1 DESCRIPTION
+
+Convert back and forth between Irish Transverse Mercator grid and WGS84.
+The conversion code was stolen wholesale from L<http://bit.ly/ZqpUA>.
+
+  http://svn.geograph.org.uk/svn/branches/british-isles/libs/geograph \
+    /conversionslatlong.class.php
+
+Nothing is exported by default. The exportable functions are
+C<ll_to_grid> and C<grid_to_ll>.
 
 =head1 INTERFACE 
 
 =head2 C<< ll_to_grid >>
+
+Convert a latitude, longitude (WGS84) coordinate pair into an ITM
+easting and northing.
+
+  my ( $east, $north ) = ll_to_grid( $lat, $lon );
 
 =cut
 
@@ -52,6 +69,10 @@ sub ll_to_grid {
 
 =head2 C<< grid_to_ll >>
 
+Convert an ITM easting, northing pair to a WGS84 latitude, longitude.
+
+  my ( $lat, $lon ) = grid_to_ll( $east, $north );
+
 =cut
 
 sub grid_to_ll {
@@ -71,180 +92,157 @@ sub grid_to_ll {
   );
 }
 
-sub _pow {
-  my ( $a, $b ) = @_;
-  return $a**$b;
-}
-
 sub _ll2e {
   my ( $PHI, $LAM, $a, $b, $e0, $f0, $PHI0, $LAM0 ) = @_;
 
-  # Convert angle measures to radians
-  my $Pi      = pi;
-  my $RadPHI  = $PHI * ( $Pi / 180 );
-  my $RadLAM  = $LAM * ( $Pi / 180 );
-  my $RadPHI0 = $PHI0 * ( $Pi / 180 );
-  my $RadLAM0 = $LAM0 * ( $Pi / 180 );
-  my $af0     = $a * $f0;
-  my $bf0     = $b * $f0;
-  my $e2      = ( _pow( $af0, 2 ) - _pow( $bf0, 2 ) ) / _pow( $af0, 2 );
-  my $n       = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
-  my $nu = $af0 / ( sqrt( 1 - ( $e2 * _pow( sin( $RadPHI ), 2 ) ) ) );
-  my $rho = ( $nu * ( 1 - $e2 ) )
-   / ( 1 - ( $e2 * _pow( sin( $RadPHI ), 2 ) ) );
+  my $RadPHI  = deg2rad( $PHI );
+  my $RadLAM  = deg2rad( $LAM );
+  my $RadPHI0 = deg2rad( $PHI0 );
+  my $RadLAM0 = deg2rad( $LAM0 );
+
+  my $af0 = $a * $f0;
+  my $bf0 = $b * $f0;
+  my $e2  = ( $af0**2 - $bf0**2 ) / $af0**2;
+  my $n   = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
+  my $nu  = $af0 / ( sqrt( 1 - ( $e2 * sin( $RadPHI )**2 ) ) );
+  my $rho = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * sin( $RadPHI )**2 ) );
   my $eta2 = ( $nu / $rho ) - 1;
   my $p    = $RadLAM - $RadLAM0;
   my $IV   = $nu * ( cos( $RadPHI ) );
+
   my $V
    = ( $nu / 6 ) 
-   * ( _pow( cos( $RadPHI ), 3 ) )
-   * ( ( $nu / $rho ) - ( _pow( tan( $RadPHI ), 2 ) ) );
+   * ( cos( $RadPHI )**3 )
+   * ( ( $nu / $rho ) - ( tan( $RadPHI )**2 ) );
+
   my $VI
    = ( $nu / 120 ) 
-   * ( _pow( cos( $RadPHI ), 5 ) )
+   * ( cos( $RadPHI )**5 )
    * ( 5 
-     - ( 18 * ( _pow( tan( $RadPHI ), 2 ) ) )
-     + ( _pow( tan( $RadPHI ), 4 ) )
-     + ( 14 * $eta2 )
-     - ( 58 * ( _pow( tan( $RadPHI ), 2 ) ) * $eta2 ) );
+     - ( 18 * ( tan( $RadPHI )**2 ) ) 
+     + ( tan( $RadPHI )**4 )
+     + ( 14 * $eta2 ) 
+     - ( 58 * ( tan( $RadPHI )**2 ) * $eta2 ) );
 
-  return $e0 + ( $p * $IV ) + ( _pow( $p, 3 ) * $V )
-   + ( _pow( $p, 5 ) * $VI );
+  return $e0 + ( $p * $IV ) + ( $p**3 * $V ) + ( $p**5 * $VI );
 }
 
 sub _ll2n {
   my ( $PHI, $LAM, $a, $b, $e0, $n0, $f0, $PHI0, $LAM0 ) = @_;
 
-  my $Pi      = pi;
-  my $RadPHI  = $PHI * ( $Pi / 180 );
-  my $RadLAM  = $LAM * ( $Pi / 180 );
-  my $RadPHI0 = $PHI0 * ( $Pi / 180 );
-  my $RadLAM0 = $LAM0 * ( $Pi / 180 );
-  my $af0     = $a * $f0;
-  my $bf0     = $b * $f0;
-  my $e2      = ( _pow( $af0, 2 ) - _pow( $bf0, 2 ) ) / _pow( $af0, 2 );
-  my $n       = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
-  my $nu = $af0 / ( sqrt( 1 - ( $e2 * _pow( sin( $RadPHI ), 2 ) ) ) );
-  my $rho = ( $nu * ( 1 - $e2 ) )
-   / ( 1 - ( $e2 * _pow( sin( $RadPHI ), 2 ) ) );
+  my $RadPHI  = deg2rad( $PHI );
+  my $RadLAM  = deg2rad( $LAM );
+  my $RadPHI0 = deg2rad( $PHI0 );
+  my $RadLAM0 = deg2rad( $LAM0 );
+
+  my $af0 = $a * $f0;
+  my $bf0 = $b * $f0;
+  my $e2  = ( $af0**2 - $bf0**2 ) / $af0**2;
+  my $n   = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
+  my $nu  = $af0 / ( sqrt( 1 - ( $e2 * sin( $RadPHI )**2 ) ) );
+  my $rho = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * sin( $RadPHI )**2 ) );
   my $eta2 = ( $nu / $rho ) - 1;
   my $p    = $RadLAM - $RadLAM0;
   my $M    = _marc( $bf0, $n, $RadPHI0, $RadPHI );
   my $I    = $M + $n0;
   my $II   = ( $nu / 2 ) * ( sin( $RadPHI ) ) * ( cos( $RadPHI ) );
   my $III
-   = (
-    ( $nu / 24 ) * ( sin( $RadPHI ) ) * ( _pow( cos( $RadPHI ), 3 ) ) )
-   * ( 5 - ( _pow( tan( $RadPHI ), 2 ) ) + ( 9 * $eta2 ) );
+   = ( ( $nu / 24 ) * ( sin( $RadPHI ) ) * ( cos( $RadPHI )**3 ) )
+   * ( 5 - ( tan( $RadPHI )**2 ) + ( 9 * $eta2 ) );
   my $IIIA
-   = (
-    ( $nu / 720 ) * ( sin( $RadPHI ) ) * ( _pow( cos( $RadPHI ), 5 ) ) )
-   * ( 61 
-     - ( 58 * ( _pow( tan( $RadPHI ), 2 ) ) )
-     + ( _pow( tan( $RadPHI ), 4 ) ) );
+   = ( ( $nu / 720 ) * ( sin( $RadPHI ) ) * ( cos( $RadPHI )**5 ) )
+   * ( 61 - ( 58 * ( tan( $RadPHI )**2 ) ) + ( tan( $RadPHI )**4 ) );
 
-  return $I + ( _pow( $p, 2 ) * $II ) + ( _pow( $p, 4 ) * $III )
-   + ( _pow( $p, 6 ) * $IIIA );
+  return $I + ( $p**2 * $II ) + ( $p**4 * $III ) + ( $p**6 * $IIIA );
 }
 
 sub _en2lat {
   my ( $East, $North, $a, $b, $e0, $n0, $f0, $PHI0, $LAM0 ) = @_;
 
-  my $Pi      = pi;
-  my $RadPHI0 = $PHI0 * ( $Pi / 180 );
-  my $RadLAM0 = $LAM0 * ( $Pi / 180 );
+  my $RadPHI0 = deg2rad( $PHI0 );
+  my $RadLAM0 = deg2rad( $LAM0 );
 
   my $af0 = $a * $f0;
   my $bf0 = $b * $f0;
-  my $e2  = ( _pow( $af0, 2 ) - _pow( $bf0, 2 ) ) / _pow( $af0, 2 );
+  my $e2  = ( $af0**2 - $bf0**2 ) / $af0**2;
   my $n   = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
   my $Et  = $East - $e0;
 
   my $PHId = _init_lat( $North, $n0, $af0, $RadPHI0, $n, $bf0 );
 
-  my $nu = $af0 / ( sqrt( 1 - ( $e2 * ( _pow( sin( $PHId ), 2 ) ) ) ) );
-  my $rho
-   = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * _pow( sin( $PHId ), 2 ) ) );
+  my $nu = $af0 / ( sqrt( 1 - ( $e2 * ( sin( $PHId )**2 ) ) ) );
+  my $rho = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * sin( $PHId )**2 ) );
   my $eta2 = ( $nu / $rho ) - 1;
 
   my $VII = ( tan( $PHId ) ) / ( 2 * $rho * $nu );
+
   my $VIII
-   = ( ( tan( $PHId ) ) / ( 24 * $rho * _pow( $nu, 3 ) ) )
+   = ( ( tan( $PHId ) ) / ( 24 * $rho * $nu**3 ) )
    * ( 5 
-     + ( 3 * ( _pow( tan( $PHId ), 2 ) ) ) 
+     + ( 3 * ( tan( $PHId )**2 ) ) 
      + $eta2
-     - ( 9 * $eta2 * ( _pow( tan( $PHId ), 2 ) ) ) );
+     - ( 9 * $eta2 * ( tan( $PHId )**2 ) ) );
+
   my $IX
-   = ( ( tan( $PHId ) ) / ( 720 * $rho * _pow( $nu, 5 ) ) )
+   = ( ( tan( $PHId ) ) / ( 720 * $rho * $nu**5 ) )
    * ( 61 
      + ( 90 * ( ( tan( $PHId ) ) ^ 2 ) )
-     + ( 45 * ( _pow( tan( $PHId ), 4 ) ) ) );
+     + ( 45 * ( tan( $PHId )**4 ) ) );
 
-  my $_en2lat
-   = ( 180 / $Pi )
+  return ( 180 / pi )
    * ( $PHId 
-     - ( _pow( $Et, 2 ) * $VII ) 
-     + ( _pow( $Et, 4 ) * $VIII )
-     - ( ( $Et ^ 6 ) * $IX ) );
-
-  return ( $_en2lat );
+     - ( $Et**2 * $VII ) 
+     + ( $Et**4 * $VIII )
+     - ( ( $Et**6 ) * $IX ) );
 }
 
 sub _en2lon {
   my ( $East, $North, $a, $b, $e0, $n0, $f0, $PHI0, $LAM0 ) = @_;
 
-  my $Pi      = pi;
-  my $RadPHI0 = $PHI0 * ( $Pi / 180 );
-  my $RadLAM0 = $LAM0 * ( $Pi / 180 );
+  my $RadPHI0 = deg2rad( $PHI0 );
+  my $RadLAM0 = deg2rad( $LAM0 );
 
   my $af0 = $a * $f0;
   my $bf0 = $b * $f0;
-  my $e2  = ( _pow( $af0, 2 ) - _pow( $bf0, 2 ) ) / _pow( $af0, 2 );
+  my $e2  = ( $af0**2 - $bf0**2 ) / $af0**2;
   my $n   = ( $af0 - $bf0 ) / ( $af0 + $bf0 );
   my $Et  = $East - $e0;
 
   my $PHId = _init_lat( $North, $n0, $af0, $RadPHI0, $n, $bf0 );
 
-  my $nu = $af0 / ( sqrt( 1 - ( $e2 * ( _pow( sin( $PHId ), 2 ) ) ) ) );
-  my $rho
-   = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * _pow( sin( $PHId ), 2 ) ) );
+  my $nu = $af0 / ( sqrt( 1 - ( $e2 * ( sin( $PHId )**2 ) ) ) );
+  my $rho = ( $nu * ( 1 - $e2 ) ) / ( 1 - ( $e2 * sin( $PHId )**2 ) );
   my $eta2 = ( $nu / $rho ) - 1;
 
-  my $X = ( _pow( cos( $PHId ), -1 ) ) / $nu;
-  my $XI = ( ( _pow( cos( $PHId ), -1 ) ) / ( 6 * _pow( $nu, 3 ) ) )
-   * ( ( $nu / $rho ) + ( 2 * ( _pow( tan( $PHId ), 2 ) ) ) );
+  my $X = ( cos( $PHId )**-1 ) / $nu;
+  my $XI = ( ( cos( $PHId )**-1 ) / ( 6 * $nu**3 ) )
+   * ( ( $nu / $rho ) + ( 2 * ( tan( $PHId )**2 ) ) );
 
   my $XII
-   = ( ( _pow( cos( $PHId ), -1 ) ) / ( 120 * _pow( $nu, 5 ) ) )
-   * ( 5 
-     + ( 28 * ( _pow( tan( $PHId ), 2 ) ) )
-     + ( 24 * ( _pow( tan( $PHId ), 4 ) ) ) );
+   = ( ( cos( $PHId )**-1 ) / ( 120 * $nu**5 ) )
+   * (
+    5 + ( 28 * ( tan( $PHId )**2 ) ) + ( 24 * ( tan( $PHId )**4 ) ) );
 
   my $XIIA
-   = ( ( _pow( cos( $PHId ), -1 ) ) / ( 5040 * _pow( $nu, 7 ) ) )
+   = ( ( cos( $PHId )**-1 ) / ( 5040 * $nu**7 ) )
    * ( 61 
-     + ( 662 *  ( _pow( tan( $PHId ), 2 ) ) )
-     + ( 1320 * ( _pow( tan( $PHId ), 4 ) ) )
-     + ( 720 *  ( _pow( tan( $PHId ), 6 ) ) ) );
+     + ( 662 *  ( tan( $PHId )**2 ) ) 
+     + ( 1320 * ( tan( $PHId )**4 ) )
+     + ( 720 *  ( tan( $PHId )**6 ) ) );
 
-  my $_en2lon
-   = ( 180 / $Pi )
+  return ( 180 / pi )
    * ( $RadLAM0 
      + ( $Et * $X ) 
-     - ( _pow( $Et, 3 ) * $XI )
-     + ( _pow( $Et, 5 ) * $XII ) 
-     - ( _pow( $Et, 7 ) * $XIIA ) );
-
-  return $_en2lon;
+     - ( $Et**3 * $XI ) 
+     + ( $Et**5 * $XII )
+     - ( $Et**7 * $XIIA ) );
 }
 
 sub _init_lat {
   my ( $North, $n0, $afo, $PHI0, $n, $bfo ) = @_;
 
   my $PHI1 = ( ( $North - $n0 ) / $afo ) + $PHI0;
-
   my $M = _marc( $bfo, $n, $PHI0, $PHI1 );
-
   my $PHI2 = ( ( $North - $n0 - $M ) / $afo ) + $PHI1;
 
   while ( abs( $North - $n0 - $M ) > 0.00001 ) {
@@ -260,26 +258,18 @@ sub _marc {
   my ( $bf0, $n, $PHI0, $PHI ) = @_;
   return $bf0 * (
     (
-      (
-           1 
-         + $n 
-         + ( ( 5 / 4 ) * _pow( $n, 2 ) )
-         + ( ( 5 / 4 ) * _pow( $n, 3 ) )
-      ) * ( $PHI - $PHI0 )
+        ( 1 + $n + ( ( 5 / 4 ) * $n**2 ) + ( ( 5 / 4 ) * $n**3 ) )
+      * ( $PHI - $PHI0 )
     ) - (
-      (
-          ( 3 * $n ) 
-        + ( 3 * _pow( $n, 2 ) )
-         + ( ( 21 / 8 ) * _pow( $n, 3 ) )
-      ) * ( sin( $PHI - $PHI0 ) ) * ( cos( $PHI + $PHI0 ) )
+      ( ( 3 * $n ) + ( 3 * $n**2 ) + ( ( 21 / 8 ) * $n**3 ) )
+      *  ( sin( $PHI - $PHI0 ) )
+       * ( cos( $PHI + $PHI0 ) )
      ) + (
-      (
-        ( ( 15 / 8 ) * _pow( $n, 2 ) ) + ( ( 15 / 8 ) * _pow( $n, 3 ) )
-      ) 
+      ( ( ( 15 / 8 ) * $n**2 ) + ( ( 15 / 8 ) * $n**3 ) )
       *  ( sin( 2 * ( $PHI - $PHI0 ) ) )
        * ( cos( 2 * ( $PHI + $PHI0 ) ) )
      ) - (
-      ( ( 35 / 24 ) * _pow( $n, 3 ) ) 
+      ( ( 35 / 24 ) * $n**3 ) 
       *  ( sin( 3 * ( $PHI - $PHI0 ) ) )
        * ( cos( 3 * ( $PHI + $PHI0 ) ) )
      )
@@ -297,7 +287,7 @@ L<http://rt.cpan.org>.
 
 =head1 AUTHOR
 
-Andy Armstrong  C<< <andy@hexten.net> >>
+Andy Armstrong C<< <andy@hexten.net> >>
 
 Code gratefully stolen from L<http://bit.ly/ZqpUA>
 
