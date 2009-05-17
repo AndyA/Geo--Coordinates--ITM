@@ -35,3 +35,4 @@
 ^WWW-FogBugz-
 ^Session\.vim$
 \.swp$
+^ref/
