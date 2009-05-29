@@ -1,0 +1,12 @@
+*.tar.gz
+.lwpcookies
+Build
+Geo-Coordinates-ITM-*
+MANIFEST.bak
+Makefile
+Makefile.old
+Session.vim
+_build*
+blib*
+cover_db
+pm_to_blib*
