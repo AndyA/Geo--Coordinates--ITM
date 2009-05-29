@@ -1,6 +1,7 @@
 ---
 name: Geo-Coordinates-ITM
-version: 0.02
+version: 0.03
+
 author:
   - 'Andy Armstrong <andy@hexten.net>'
 abstract: Convert coordinates between lat/lon and Irish Transverse Mercator
